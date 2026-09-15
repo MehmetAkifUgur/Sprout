@@ -1,0 +1,26 @@
+name: sprout
+description: "Bitki Büyüt - Hafta 2: büyüme mantığı (growth engine)."
+publish_to: 'none'
+
+version: 0.2.0+2
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  sqflite: ^2.4.4
+  path: ^1.9.1
+  intl: ^0.20.3
+  flutter_riverpod: ^3.4.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  sqflite_common_ffi: ^2.4.3
+
+flutter:
+  uses-material-design: true
