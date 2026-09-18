@@ -24,3 +24,6 @@ DateTime parseDayKey(String key) {
   final parts = key.split('-').map(int.parse).toList();
   return DateTime(parts[0], parts[1], parts[2]);
 }
+
+/// Pazartesi başlangıçlı kısa gün adları (uygulama sabit tr_TR).
+const weekdayLabelsMonFirst = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];

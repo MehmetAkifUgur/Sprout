@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/constants/plant_types.dart';
 import '../../../data/models/habit.dart';
+import '../../../domain/date_utils.dart';
 import '../../../domain/habit_schedule.dart';
 import '../../providers/habits_provider.dart';
 import '../../providers/providers.dart';
@@ -51,11 +51,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Pazartesi başlangıçlı kısa gün adları.
-    final dayNames = [
-      for (var i = 0; i < 7; i++)
-        DateFormat.E().format(DateTime(2024, 1, 1 + i)),
-    ];
+    final dayNames = weekdayLabelsMonFirst;
 
     return Scaffold(
       appBar: AppBar(

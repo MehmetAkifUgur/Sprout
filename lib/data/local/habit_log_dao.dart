@@ -1,6 +1,5 @@
 import 'package:sqflite/sqflite.dart';
 
-import '../../domain/date_utils.dart';
 import '../models/habit_log.dart';
 
 class HabitLogDao {
@@ -30,16 +29,4 @@ class HabitLogDao {
     final rows = await _db.query(_table, orderBy: 'date ASC');
     return rows.map(HabitLog.fromMap).toList();
   }
-
-  Future<HabitLog?> get(int habitId, DateTime date) async {
-    final rows = await _db.query(
-      _table,
-      where: 'habit_id = ? AND date = ?',
-      whereArgs: [habitId, dayKey(date)],
-    );
-    return rows.isEmpty ? null : HabitLog.fromMap(rows.first);
-  }
-
-  Future<int> deleteForHabit(int habitId) =>
-      _db.delete(_table, where: 'habit_id = ?', whereArgs: [habitId]);
 }

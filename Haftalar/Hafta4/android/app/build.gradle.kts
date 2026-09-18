@@ -32,6 +32,21 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        getByName("debug") {
+            // Projeyle birlikte kurulu, sabit bir debug anahtarı. Farklı makinelerden
+            // (~/.android/debug.keystore her makinede farklı olur) yapılan build'ler
+            // farklı imzayla çıkarsa Android güncellemeyi reddeder ve Flutter/adb
+            // sessizce uninstall+install yapar; bu da uygulama verisini (veritabanı
+            // dahil) siler. Sabit anahtar, hangi makineden build alınırsa alınsın
+            // imzanın aynı kalmasını, dolayısıyla verinin korunmasını sağlar.
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.

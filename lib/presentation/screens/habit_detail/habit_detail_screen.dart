@@ -301,13 +301,10 @@ class _HistoryCalendar extends StatelessWidget {
           children: [
             Row(
               children: [
-                for (var i = 0; i < 7; i++)
+                for (final label in weekdayLabelsMonFirst)
                   Expanded(
                     child: Center(
-                      child: Text(
-                        DateFormat.E().format(DateTime(2024, 1, 1 + i)),
-                        style: theme.textTheme.labelSmall,
-                      ),
+                      child: Text(label, style: theme.textTheme.labelSmall),
                     ),
                   ),
               ],
