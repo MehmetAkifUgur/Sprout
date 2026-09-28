@@ -1,0 +1,54 @@
+1. ÖĞRENME BİRİMİ: PROJE HAZIRLIK
+(Bitki Büyüt / Sprout projesine göre)
+
+Planlama aşamasında yapılan işlemler şunlardır:
+
+Müşterinin temel ihtiyaçlarının belirlenmesi
+  Hedef kullanıcı: alışkanlık edinmek isteyen ama klasik takip listelerini
+  sıkıcı bulan kişiler. İhtiyaç: hesap açmadan, internete bağlanmadan,
+  tamamen cihazda çalışan; ilerlemeyi soyut bir yüzdeyle değil, büyüyen/solan
+  bir bitki gibi somut ve duygusal bir geri bildirimle gösteren bir uygulama.
+
+Projenin sınırlarının belirlenmesi
+  Kapsam içi: günlük/haftalık/özel-gün hedef tipleri, 4 bitki türü (gül,
+  ayçiçeği, elma ağacı, kaktüs), yerel bildirimler, istatistik ekranı,
+  onboarding. Kapsam dışı: sunucu/senkronizasyon, çoklu kullanıcı, sosyal
+  özellikler, bulut yedekleme — proje bilinçli olarak offline-first tutuldu.
+
+Proje sürecini takip edecek ve koordinasyonu sağlayacak proje lideri ile
+takım liderinin belirlenmesi
+  Tek geliştiricili bir proje olduğu için proje/takım lideri rolü aynı
+  kişide (Mehmet Akif Uğur); haftalık teslimler kendi kendine konan
+  kilometre taşları olarak koordinasyonu sağlıyor.
+
+Proje ekiplerinin oluşturulması ve iş bölümünün yapılması
+  Katman bazlı iş bölümü: domain/ (saf Dart, büyüme algoritması),
+  data/ (repository + sqflite), presentation/ (ekranlar + Riverpod
+  provider'ları). Her katman birbirinden bağımsız test edilebilir şekilde
+  ayrıldı; domain katmanı Flutter'dan tamamen bağımsız.
+
+Zaman ve kaynak planlamasının yapılması
+  4 haftalık birikimli teslim planı (Haftalar/ klasörü): Hafta1 veri
+  katmanı, Hafta2 growth engine + Riverpod, Hafta3 bahçe/animasyon/
+  bildirimler, Hafta4 istatistik/onboarding/ikon-splash ile final cila.
+  Her hafta bir öncekinin üzerine inşa edildiği için kaynak (zaman) haftalar
+  arasında kademeli dağıtıldı.
+
+Proje maliyet hesabının yapılması
+  Sunucu, veritabanı hosting, üçüncü parti API maliyeti yok (tamamen
+  offline, yerel SQLite). Tek maliyet kalemi geliştirme süresi; App Store/
+  Play Store yayın ücretleri kapsam dışı tutuldu (ödev/portföy projesi).
+
+Risk yönetimi ve analizinin yapılması
+  Gerçekleşen somut riskler: (1) sqlite3 paketinin native build hook'unun
+  ilk build'de internetten dosya indirmesi — yavaş bağlantıda build'i
+  saatlerce kilitleyebiliyor, önbellek kopyalanarak çözüldü; (2) haftalık
+  sürümler arasında veritabanı şema değişikliği (v1→v2→v3) — eski
+  verilerin kaybolmaması için migration'larla geriye dönük uyumluluk
+  sağlandı.
+
+Proje takvimi veya proje planının oluşturulması
+  Haftalar/README.md dosyasındaki tablo doğrudan proje takvimi olarak
+  kullanıldı: her hafta için içerik, şema versiyonu ve test sayısı önceden
+  tanımlandı (Hafta1: 4 test, Hafta2: 28 test, Hafta3: 30 test, Hafta4:
+  32 test).
