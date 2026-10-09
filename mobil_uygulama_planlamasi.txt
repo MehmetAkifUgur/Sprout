@@ -1,0 +1,124 @@
+3.1. MOBİL UYGULAMANIN PLANLAMASI
+(Bitki Büyüt / Sprout projesine göre — ders materyalindeki Gezi Takımı örneğinin
+yapısı izlenerek hazırlanmıştır)
+
+YAPILMAK İSTENEN ÇALIŞMA
+--------------------------
+Kullanıcının alışkanlıklarını günlük/haftalık/özel-gün hedefleriyle tanımlayıp
+tamamladıkça bir saksı bitkisinin büyüdüğü, ihmal edince soldığı; tamamen
+offline (yerel SQLite, sunucu yok, hesap yok) çalışan bir Android/iOS mobil
+uygulaması (Flutter) hazırlanacaktır.
+
+MÜŞTERİNİN İSTEKLERİ
+---------------------
+* İnternet bağlantısı gerektirmeyen, verilerin tamamen cihazda tutulduğu bir
+  uygulama istiyorum.
+* Her alışkanlık kendi bitkisiyle temsil edilmeli; tamamlandıkça evre atlamalı
+  (Tohum → Filiz → Fidan → Çiçek → Tam Büyümüş), ihmal edilince solmalı.
+* Günlük, haftalık ve özel-gün olmak üzere farklı hedef tipleri desteklenmeli.
+* Uygulama Android'de API 23 ve üzeri sürümlerde sorunsuz çalışmalı; iOS
+  desteği de (en az deneme/test amaçlı) olmalı.
+* Her alışkanlık için kendi saatinde yerel bildirim gönderilmeli.
+* Ana sayfada "Bahçe" görünümünde tüm bitkiler listelenmeli; bir bitkiye
+  dokunulduğunda o alışkanlığa ait detay ekranı (geçmiş, seri, istatistik)
+  açılmalı.
+* İstatistik ekranında son 7/30 günlük tamamlanma grafiği ve en uzun seri
+  gösterilmeli.
+* İlk açılışta kullanıcıyı karşılayan kısa bir onboarding akışı olmalı.
+* Arayüz metinleri tamamen Türkçe olmalı.
+
+MÜŞTERİ İSTEKLERİ ÖLÇÜSÜNDE İHTİYAÇ DUYULAN GEREKSİNİMLER
+------------------------------------------------------------
+* Flutter SDK (güncel kararlı sürüm) ve Dart
+* Android Studio (emülatör ve Android SDK araçlarıyla birlikte)
+* Android fiziksel cihaz veya emülatör; mümkünse ayrıca bir iOS cihazı/Mac
+  (iOS Simulator yalnızca macOS'ta çalışır)
+* Yerel veritabanı için sqflite (masaüstü/test ortamında sqflite_common_ffi)
+* Yerel bildirimler için flutter_local_notifications + timezone paketleri
+* İstatistik grafikleri için fl_chart paketi
+* Uygulama ikonu/splash ekranı ve bitki görselleri için bir tasarım/çizim aracı
+* Versiyon kontrolü için Git
+
+PROJE TAKIM ÜYELERİNİ BELİRLEMEK VE İŞ PAYLAŞIMI
+---------------------------------------------------
+Proje tek kişi (Mehmet Akif Uğur) tarafından yürütülmektedir; bu nedenle
+ekip bölümlemesi yapılmamıştır. İş paylaşımı yerine haftalık birikimli
+kilometre taşları kullanılmıştır (bk. Haftalar/README.md): her hafta bir
+öncekinin üzerine inşa edilen, kendi başına çalışan bir anlık görüntü teslim
+edilmiştir.
+
+FİZİBİLİTE ÇALIŞMALARI LİSTESİ
+---------------------------------
+* Android ve (olabildiğince) iOS'ta çalışması hedeflenmektedir.
+* Veri katmanı için yerel SQLite (sqflite) kullanılması planlanmaktadır;
+  bulut/sunucu veritabanına ihtiyaç yoktur.
+* Dart dilinde, Flutter + Riverpod mimarisiyle geliştirilmesi
+  amaçlanmaktadır.
+* Büyüme puanı, geçmiş loglardan her seferinde yeniden hesaplanacak (replay)
+  şekilde tasarlanmıştır; böylece geçmişe dönük düzeltmeler veya uzun süre
+  uygulamanın açılmaması veri tutarsızlığı yaratmaz.
+* Veritabanı şeması haftalar arasında değişeceği (v1→v2→v3) için her
+  değişiklikte migration ile geriye dönük uyumluluk sağlanacaktır.
+* Uygulama ikonu ve açılış ekranı (splash) final haftada eklenecektir.
+
+PROJE MALİYET HESABI
+------------------------
+* Sunucu, hosting veya üçüncü parti API maliyeti yoktur (tamamen offline,
+  yerel SQLite).
+* Flutter SDK, Android Studio ve kullanılan paketlerin tamamı ücretsizdir.
+* Google Play Store'a yayınlama tek seferlik geliştirici hesabı ücreti
+  gerektirir (bu proje kapsamında ödev/portföy amaçlı olduğu için şimdilik
+  kapsam dışı tutulmuştur).
+* Apple App Store'a yayınlama ayrı bir yıllık geliştirici hesabı ücreti
+  gerektirir; iOS dağıtımı bu projenin kapsamı dışındadır, yalnızca test/
+  geliştirme amaçlı değerlendirilmiştir.
+
+PROJE TAKVİMİ
+-----------------
+Zaman          Proje Bölümü                                  Süre
+1. Hafta        Veri katmanı (schema v1) + sade liste arayüzü  1 hafta
+2. Hafta        Growth engine (saf Dart) + Riverpod provider'lar
+                + placeholder bitki                            1 hafta
+3. Hafta        Bahçe ekranı, çizimli/animasyonlu bitki,
+                yerel bildirimler, detay ekranı (schema v2)    1 hafta
+4. Hafta        İstatistik ekranı, onboarding, ikon/splash,
+                uygulama sıfırlama (final, schema v3)          1 hafta
+
+RİSK ANALİZİ
+----------------
+No  Risk                                   Olasılık  Etki    Alınacak Önlemler
+1   sqlite3 paketinin native build hook'u-  Orta      Yüksek  Önbellek (download-*
+    nun ilk build'de internetten dosya                        klasörü) kök projeden
+    indirmesi; yavaş bağlantıda build'i                       hafta klasörlerine
+    uzun süre kilitlemesi                                     kopyalanarak indirme
+                                                                atlatıldı.
+2   Haftalar arası veritabanı şema değişik- Yüksek    Orta    Her şema değişikliğinde
+    liği (v1→v2→v3) nedeniyle eski verile-                    version artırılıp onCreate
+    rin kaybolma riski                                        ve onUpgrade içine
+                                                                migration eklendi.
+3   Ctrl+C ile kesilen build'in arkada      Düşük     Orta    Süreç/kilit dosyası
+    hook.dill sürecini canlı bırakıp .lock                    kontrol edilip orphan
+    dosyasını kilitli tutması                                 process sonlandırılarak
+                                                                çözüldü.
+4   iOS Simulator'ın yalnızca macOS'ta      Yüksek    Düşük   iOS testi kapsam dışı
+    çalışması, Linux geliştirme makine-                       bırakıldı; Android
+    sinde iOS testinin mümkün olmaması                        emulator/masaüstü hedefi
+                                                                ile geliştirmeye devam
+                                                                edildi.
+5   Emülatörün yüksek işlemci/RAM kulla-    Orta      Düşük   Gerektiğinde fiziksel
+    narak geliştirme makinesini yavaşlat-                     Android cihaz üzerinden
+    ması                                                      test imkânı bırakıldı.
+
+RİSK YÖNETİM KARARLARI
+--------------------------
+* Build/önbellek riskleri: Native build hook'larının (sqlite3 gibi) ihtiyaç
+  duyduğu dosyalar önceden indirilip proje önbelleğine alınarak, yavaş veya
+  kesintili internet bağlantısının build süresini etkilemesi engellendi.
+* Şema değişikliği riski: Growth engine puanı veritabanında değil, loglardan
+  her seferinde yeniden hesaplandığı (replay) için şema/algoritma
+  değişiklikleri geçmiş veriyi bozmaz; yine de her yapısal değişiklik bir
+  migration ile korunmuştur.
+* Platform riski: iOS Simulator'ın Linux'ta çalışmaması teknik bir sınırlama
+  olarak kabul edilmiş (kaçınılamaz), geliştirme Android ve Linux masaüstü
+  hedefi üzerinden sürdürülmüştür; iOS'a gerçek ihtiyaç doğarsa bulut Mac
+  hizmeti veya fiziksel Mac erişimi değerlendirilecektir.

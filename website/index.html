@@ -1,0 +1,551 @@
+<title>Bitki Büyüt</title>
+<meta name="description" content="Alışkanlıklarını büyüyen bir saksı bitkisiyle takip et. Tamamen offline, hesap yok.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root {
+  --bg: #F6F8F2;
+  --surface: #ECF1E6;
+  --surface-2: #E1E9D9;
+  --ink: #1D2A1F;
+  --ink-soft: #52604F;
+  --line: #CBD6C3;
+  --leaf: #3F8F4F;
+  --leaf-deep: #2E6B3A;
+  --leaf-light: #6DBB67;
+  --stem: #558B2F;
+  --soil: #5D4037;
+  --pot: #C8693F;
+  --pot-rim: #B05A33;
+  --wilted: #9C8A55;
+  --missed: #D9625F;
+  --on-leaf: #F6F8F2;
+  --sky: #DCEBD3;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121914;
+    --surface: #19221B;
+    --surface-2: #213024;
+    --ink: #E3EADF;
+    --ink-soft: #A3B19F;
+    --line: #2E3D30;
+    --leaf: #6DBB67;
+    --leaf-deep: #8FD08A;
+    --leaf-light: #6DBB67;
+    --on-leaf: #102014;
+    --sky: #1B2A1E;
+    --missed: #E88582;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121914;
+  --surface: #19221B;
+  --surface-2: #213024;
+  --ink: #E3EADF;
+  --ink-soft: #A3B19F;
+  --line: #2E3D30;
+  --leaf: #6DBB67;
+  --leaf-deep: #8FD08A;
+  --leaf-light: #6DBB67;
+  --on-leaf: #102014;
+  --sky: #1B2A1E;
+  --missed: #E88582;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 1.0625rem/1.6 var(--body);
+  padding-inline: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin-inline: auto; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.05; text-wrap: balance; margin: 0; }
+p { margin: 0; }
+a { color: var(--leaf-deep); }
+:focus-visible { outline: 3px solid var(--leaf); outline-offset: 3px; border-radius: 6px; }
+.eyebrow {
+  font: 500 0.75rem/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--leaf-deep);
+}
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* Header */
+.top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-block: 20px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font: 800 1.2rem var(--display); color: var(--ink); text-decoration: none; }
+.brand svg { width: 30px; height: 30px; }
+.top nav { display: none; gap: 28px; }
+.top nav a { color: var(--ink-soft); text-decoration: none; font-weight: 500; }
+.top nav a:hover { color: var(--ink); }
+
+/* Hero */
+.hero {
+  display: grid; gap: 40px;
+  padding-block: 24px 64px;
+}
+.hero h1 {
+  font-size: clamp(2.6rem, 9vw, 5.4rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+.hero h1 em { font-style: normal; color: var(--leaf); }
+.hero .lede { font-size: 1.2rem; color: var(--ink-soft); max-width: 34ch; margin-top: 20px; }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.tags span {
+  font: 500 0.8rem var(--mono); padding: 6px 12px; border-radius: 99px;
+  border: 1px solid var(--line); color: var(--ink-soft);
+}
+
+/* Simulator */
+.sim {
+  background: var(--surface);
+  border-radius: 28px;
+  padding: 20px;
+  display: grid; gap: 16px;
+}
+.sim-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.sim-head .stage { font: 700 1.5rem var(--display); }
+.sim-head .score { font-size: 0.9rem; color: var(--ink-soft); }
+.stage.wilted { color: var(--wilted); }
+.pot-stage {
+  background: linear-gradient(to bottom, var(--sky), var(--surface) 90%);
+  border-radius: 20px;
+  aspect-ratio: 4 / 3.2;
+  max-width: 100%;
+  display: grid; place-items: end center;
+  overflow: hidden;
+}
+#plant { width: 100%; height: 100%; }
+.bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--leaf); border-radius: inherit; transition: width .5s cubic-bezier(.3,.8,.3,1), background .3s; }
+.bar.wilted i { background: var(--wilted); }
+.log { display: flex; gap: 4px; flex-wrap: wrap; min-height: 14px; }
+.log b { width: 14px; height: 14px; border-radius: 4px; background: var(--leaf); }
+.log b.m { background: transparent; border: 2px solid var(--missed); }
+.meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.85rem; color: var(--ink-soft); }
+.meta strong { color: var(--ink); }
+.types { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.types button {
+  font: 500 0.8rem var(--body); color: var(--ink-soft);
+  background: transparent; border: 1px solid var(--line); border-radius: 12px;
+  padding: 8px 4px; min-height: 44px; cursor: pointer;
+  display: grid; justify-items: center; gap: 4px;
+}
+.types button i { width: 12px; height: 12px; border-radius: 50%; }
+.types button[aria-pressed="true"] { border-color: var(--leaf); color: var(--ink); background: var(--bg); }
+.actions { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+.btn {
+  font: 600 1rem var(--body); border-radius: 99px; min-height: 48px; padding: 0 18px;
+  cursor: pointer; border: 0; transition: transform .12s, background .2s;
+}
+.btn:active { transform: scale(.97); }
+.btn.water { background: var(--leaf-deep); color: var(--on-leaf); }
+.btn.water:hover { background: var(--leaf); }
+.btn.skip { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.btn.skip:hover { border-color: var(--missed); }
+.reset { justify-self: start; background: none; border: 0; color: var(--ink-soft); font: 500 0.85rem var(--body); cursor: pointer; text-decoration: underline; padding: 4px 0; }
+.toast { font-size: 0.9rem; color: var(--leaf-deep); min-height: 1.4em; }
+
+/* Sections */
+section { padding-block: 64px; border-top: 1px solid var(--line); }
+.sec-head { display: grid; gap: 12px; margin-bottom: 36px; max-width: 640px; }
+.sec-head h2 { font-size: clamp(2rem, 5.5vw, 3.2rem); font-weight: 700; letter-spacing: -0.025em; }
+.sec-head p { color: var(--ink-soft); }
+
+/* Stages ruler */
+.ruler { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; overflow-x: auto; }
+.ruler div { padding: 16px 10px 0 0; border-top: 4px solid var(--leaf); display: grid; gap: 6px; min-width: 0; }
+.ruler div:nth-child(1) { border-color: #B9CFA9; }
+.ruler div:nth-child(2) { border-color: #93C07F; }
+.ruler div:nth-child(3) { border-color: #6DBB67; }
+.ruler div:nth-child(4) { border-color: #3F8F4F; }
+.ruler div:nth-child(5) { border-color: #2E6B3A; }
+.ruler h3 { font-size: clamp(1rem, 3vw, 1.45rem); font-weight: 700; }
+.ruler .num { font-size: 0.8rem; color: var(--ink-soft); }
+.ruler svg { width: 100%; max-width: 90px; height: auto; }
+
+/* Rules */
+.rules { display: grid; gap: 1px; background: var(--line); border-radius: 20px; overflow: hidden; }
+.rule { background: var(--bg); padding: 24px; display: grid; gap: 10px; }
+.rule h3 { font-size: 1.3rem; font-weight: 700; }
+.rule p { color: var(--ink-soft); }
+.rule code {
+  font: 500 0.9rem var(--mono); background: var(--surface); padding: 8px 12px; border-radius: 10px;
+  display: block; overflow-x: auto; white-space: nowrap; color: var(--ink);
+}
+.rule .sign { font: 800 1.8rem var(--display); }
+.rule .plus { color: var(--leaf); }
+.rule .zero { color: var(--ink-soft); }
+.rule .minus { color: var(--missed); }
+.rule .wilt { color: var(--wilted); }
+
+/* Screens */
+.screens { display: grid; gap: 32px; }
+.shot { display: grid; gap: 14px; justify-items: start; }
+.shot img {
+  width: 100%; max-width: 260px; height: auto; aspect-ratio: 1080 / 2400; border-radius: 28px;
+  border: 8px solid var(--ink); background: var(--ink);
+}
+.shot h3 { font-size: 1.35rem; font-weight: 700; }
+.shot p { color: var(--ink-soft); max-width: 36ch; }
+
+/* Features */
+.feats { display: grid; gap: 28px; }
+.feat { display: grid; gap: 8px; padding-top: 16px; border-top: 2px solid var(--ink); }
+.feat h3 { font-size: 1.25rem; font-weight: 700; }
+.feat p { color: var(--ink-soft); }
+
+/* CTA */
+.cta {
+  background: var(--leaf-deep); color: var(--on-leaf);
+  border-radius: 28px; padding: 40px 24px; display: grid; gap: 20px; margin-block: 64px;
+}
+.cta h2 { font-size: clamp(2rem, 6vw, 3.4rem); font-weight: 800; letter-spacing: -0.03em; }
+.cta p { opacity: .85; max-width: 46ch; }
+.cmd {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  font: 500 0.95rem var(--mono); background: rgba(0,0,0,.18); border-radius: 14px; padding: 14px 16px;
+  overflow-x: auto;
+}
+.cmd code { white-space: pre; flex: 1; }
+.cmd button {
+  font: 600 0.85rem var(--body); background: var(--on-leaf); color: var(--leaf-deep);
+  border: 0; border-radius: 99px; padding: 10px 16px; min-height: 44px; cursor: pointer;
+}
+footer { padding-block: 24px 48px; color: var(--ink-soft); font-size: 0.9rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+@media (min-width: 720px) {
+  .top nav { display: flex; }
+  .hero { grid-template-columns: 1.1fr 1fr; align-items: center; padding-block: 48px 96px; }
+  .sim { padding: 24px; }
+  .rules { grid-template-columns: repeat(2, 1fr); }
+  .screens { grid-template-columns: repeat(2, 1fr); }
+  .feats { grid-template-columns: repeat(3, 1fr); }
+  .cta { padding: 56px; }
+  section { padding-block: 96px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 18h16l-2.5 11h-11z" fill="#C8693F"/><rect x="7" y="16" width="18" height="4" rx="1.5" fill="#B05A33"/><path d="M16 16V8" stroke="#558B2F" stroke-width="2" stroke-linecap="round"/><path d="M16 11c-1-4-5-5-7-4 1 3 4 5 7 4zM16 9c1-4 5-5 7-4-1 3-4 5-7 4z" fill="#4CAF50"/></svg>
+      Bitki Büyüt
+    </a>
+    <nav aria-label="Sayfa içi">
+      <a href="#evreler">Evreler</a>
+      <a href="#kurallar">Nasıl büyür</a>
+      <a href="#ekranlar">Ekranlar</a>
+      <a href="#indir">Kur</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <p class="eyebrow">Alışkanlık takibi, saksıda</p>
+      <h1 style="margin-top:16px">Her gün yaptığın şey <em>büyüsün.</em></h1>
+      <p class="lede">Her alışkanlığın bir bitkisi var. Tamamladıkça filizlenir, çiçek açar. Unutursan solar, tekrar sularsan canlanır.</p>
+      <div class="tags">
+        <span>Offline</span><span>Hesap yok</span><span>Yerel SQLite</span><span>Flutter</span>
+      </div>
+    </div>
+
+    <div class="sim" aria-label="Bitki simülatörü">
+      <div class="sim-head">
+        <span class="stage" id="stage">Tohum</span>
+        <span class="score num"><span id="score">0</span> / 100 puan</span>
+      </div>
+      <div class="pot-stage"><svg id="plant" viewBox="0 0 200 160" role="img" aria-label="Saksıdaki bitki"></svg></div>
+      <div class="bar" id="bar"><i></i></div>
+      <div class="meta">
+        <span>Seri <strong class="num" id="streak">0</strong></span>
+        <span>Çarpan <strong class="num" id="mult">×1.0</strong></span>
+        <span>Kaçırılan <strong class="num" id="missed">0</strong></span>
+      </div>
+      <div class="log" id="log" aria-label="Son günler"></div>
+      <div class="types" role="group" aria-label="Bitki türü">
+        <button type="button" id="t-flower" data-type="flower" aria-pressed="true"><i style="background:#E85D75"></i>Gül</button>
+        <button type="button" id="t-sunflower" data-type="sunflower" aria-pressed="false"><i style="background:#FFC53D"></i>Ayçiçeği</button>
+        <button type="button" id="t-tree" data-type="tree" aria-pressed="false"><i style="background:#D64545"></i>Elma</button>
+        <button type="button" id="t-cactus" data-type="cactus" aria-pressed="false"><i style="background:#FF8FB1"></i>Kaktüs</button>
+      </div>
+      <div class="actions">
+        <button class="btn water" id="water" type="button">Bugün sula</button>
+        <button class="btn skip" id="skip" type="button">Günü kaçır</button>
+      </div>
+      <p class="toast" id="toast" aria-live="polite">Dene: birkaç gün üst üste sula, sonra bir gün atla.</p>
+      <button class="reset" id="reset" type="button">Baştan başla</button>
+    </div>
+  </div>
+
+  <section id="evreler">
+    <div class="sec-head">
+      <p class="eyebrow">5 evre · 0–100 puan</p>
+      <h2>Tohumdan ağaca, puan puan.</h2>
+      <p>Bitkinin boyu soyut bir yüzde değil. Her evre belli bir puan aralığına karşılık gelir ve ekranda gerçekten değişir.</p>
+    </div>
+    <div class="ruler" id="ruler"></div>
+  </section>
+
+  <section id="kurallar">
+    <div class="sec-head">
+      <p class="eyebrow">Büyüme motoru</p>
+      <h2>Kurallar basit, hesap dürüst.</h2>
+      <p>Puan her açılışta geçmiş kayıtlardan baştan hesaplanır. Geçmiş bir günü düzeltsen de, uygulamayı bir hafta açmasan da sonuç tutarlı kalır.</p>
+    </div>
+    <div class="rules">
+      <div class="rule">
+        <span class="sign plus">+4 … +8</span>
+        <h3>Tamamladın</h3>
+        <p>Günlük hedefte 4, haftalıkta 15 taban puan. Seri uzadıkça her gün %10 bonus eklenir, en fazla iki katına kadar.</p>
+        <code>taban × min(1 + (seri − 1) × 0.1, 2.0)</code>
+      </div>
+      <div class="rule">
+        <span class="sign zero">±0</span>
+        <h3>Gün henüz bitmedi</h3>
+        <p>Bugün ya da bu hafta daha yapılmadıysa ceza yok. Günün sonuna kadar vaktin var.</p>
+        <code>açık dönem → etkisiz</code>
+      </div>
+      <div class="rule">
+        <span class="sign minus">−5, −7, −9 …</span>
+        <h3>Kaçırdın</h3>
+        <p>Seri sıfırlanır. İlk kaçırma tolere edilir, sonrakiler giderek artan ceza getirir. Tek günde en fazla 15 puan düşer.</p>
+        <code>min(5 + 2 × (kaçırma − 2), 15)</code>
+      </div>
+      <div class="rule">
+        <span class="sign wilt">Solma</span>
+        <h3>Üç gün üst üste</h3>
+        <p>Günlük alışkanlıkta 3 gün, haftalıkta 2 hafta üst üste kaçırırsan bitki solar. Bir kez sulaman canlanması için yeter.</p>
+        <code>3 gün · 2 hafta</code>
+      </div>
+    </div>
+  </section>
+
+  <section id="ekranlar">
+    <div class="sec-head">
+      <p class="eyebrow">Uygulamadan</p>
+      <h2>Bahçen ve rakamların.</h2>
+    </div>
+    <div class="screens">
+      <div class="shot">
+        <img src="screenshots/garden.png" alt="Bahçem ekranı: günlük ilerleme halkası ve bir saksı bitkisi kartı" loading="lazy" width="1080" height="2400">
+        <h3>Bahçem</h3>
+        <p>Günün ilerlemesi en üstte. Her kartta bitkinin evresi, serin ve tek dokunuşla sulama.</p>
+      </div>
+      <div class="shot">
+        <img src="screenshots/stats.png" alt="İstatistik ekranı: son günlerin tamamlanma grafiği ve alışkanlık oranları" loading="lazy" width="1080" height="2400">
+        <h3>İstatistik</h3>
+        <p>Son 7 ya da 30 günün tamamlanma grafiği, en uzun serin ve her alışkanlığın başarı oranı.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">Neler var</p>
+      <h2>Küçük, ama eksiksiz.</h2>
+    </div>
+    <div class="feats">
+      <div class="feat"><h3>Dört bitki türü</h3><p>Gül, ayçiçeği, elma ağacı ve kaktüs. Hepsi kodla çizilir, animasyonla büyür ve solar.</p></div>
+      <div class="feat"><h3>Esnek hedefler</h3><p>Her gün, haftada bir ya da seçtiğin günlerde. Pazartesi–Çarşamba–Cuma koşusu da olur.</p></div>
+      <div class="feat"><h3>Kendi hatırlatman</h3><p>Her alışkanlık kendi saatinde bildirim gönderir. Sunucu yok, bildirimler cihazda planlanır.</p></div>
+      <div class="feat"><h3>Verin sende</h3><p>Hesap açmazsın, internete ihtiyaç yok. Her şey telefondaki tek bir veritabanı dosyasında.</p></div>
+      <div class="feat"><h3>Geçmişi düzelt</h3><p>Dün işaretlemeyi unuttun mu? Takvimden geri dön, bitki anında yeniden hesaplanır.</p></div>
+      <div class="feat"><h3>Türkçe, baştan sona</h3><p>Tarihler, gün adları, saat seçici. Açılışta kısa bir tanıtım seni karşılar.</p></div>
+    </div>
+  </section>
+
+  <div class="cta" id="indir">
+    <h2>İlk tohumunu ek.</h2>
+    <p>Bitki Büyüt açık kaynaklı bir Flutter projesi. Depoyu klonla ve Android, iOS ya da masaüstünde çalıştır.</p>
+    <div class="cmd">
+      <code id="cmd">flutter pub get &amp;&amp; flutter run</code>
+      <button type="button" id="copy">Kopyala</button>
+    </div>
+  </div>
+
+  <footer>
+    <span>Bitki Büyüt · Mehmet Akif Uğur</span>
+    <span>Flutter · Riverpod · sqflite</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  // GrowthConstants (lib/core/constants/growth_constants.dart)
+  const C = { base: 4, bonus: 0.1, maxMult: 2, grace: 1, decayBase: 5, decayInc: 2, maxDecay: 15, wiltAfter: 3 };
+  const STAGES = [
+    { label: 'Tohum', min: 0, max: 20 },
+    { label: 'Filiz', min: 21, max: 45 },
+    { label: 'Fidan', min: 46, max: 70 },
+    { label: 'Çiçek', min: 71, max: 90 },
+    { label: 'Tam Büyümüş', min: 91, max: 100 },
+  ];
+  const ACCENT = { flower: '#E85D75', sunflower: '#FFC53D', tree: '#D64545', cactus: '#FF8FB1' };
+  const stageIndex = s => { const r = Math.round(s); return STAGES.findIndex(x => r <= x.max); };
+
+  // Simple SVG drawing, mirrors PlantPainter's stages.
+  function drawPlant(type, stage, wilted, t = 1) {
+    const leaf = wilted ? '#9C8A55' : '#4CAF50';
+    const leafDark = wilted ? '#857445' : '#2E7D32';
+    const stem = wilted ? '#8A7B4E' : '#558B2F';
+    const accent = wilted ? '#B8A778' : ACCENT[type];
+    const cx = 100, ground = 112;
+    let g = '';
+    const h = [6, 22, 42, 58, 70][stage] * t;
+    const droop = wilted ? 14 : 0;
+
+    if (stage === 0) {
+      g += `<ellipse cx="${cx}" cy="${ground - 2}" rx="7" ry="4.5" fill="#8D6E63"/>`;
+      g += `<path d="M${cx} ${ground - 4}v-8" stroke="${stem}" stroke-width="2.5" stroke-linecap="round"/>`;
+      g += `<path d="M${cx} ${ground - 11}c-2-4-7-5-9-3 2 3 6 4 9 3zM${cx} ${ground - 11}c2-4 7-5 9-3-2 3-6 4-9 3z" fill="${leaf}"/>`;
+    } else if (type === 'cactus') {
+      const w = 12 + stage * 3, top = ground - h;
+      g += `<rect x="${cx - w / 2}" y="${top}" width="${w}" height="${h}" rx="${w / 2}" fill="${leaf}"/>`;
+      if (stage >= 2) {
+        g += `<path d="M${cx - w / 2} ${ground - h * .45}h-10a5 5 0 0 1-5-5v-${h * .25}" stroke="${leaf}" stroke-width="9" fill="none" stroke-linecap="round"/>`;
+        g += `<path d="M${cx + w / 2} ${ground - h * .6}h9a5 5 0 0 0 5-5v-${h * .18}" stroke="${leaf}" stroke-width="9" fill="none" stroke-linecap="round"/>`;
+      }
+      for (let i = 1; i < 4; i++) g += `<path d="M${cx} ${top + i * h / 4}h0" stroke="${leafDark}" stroke-width="2" stroke-linecap="round"/>`;
+      if (stage >= 3) for (let i = 0; i < 5; i++) {
+        const a = i / 5 * Math.PI * 2;
+        g += `<ellipse cx="${cx + Math.cos(a) * 5}" cy="${top - 2 + Math.sin(a) * 4}" rx="4" ry="3" fill="${accent}"/>`;
+      }
+    } else {
+      const topX = cx + droop, topY = ground - h + droop * 0.5;
+      g += `<path d="M${cx} ${ground}Q${cx - 4} ${ground - h / 2} ${topX} ${topY}" stroke="${type === 'tree' && stage >= 2 ? '#795548' : stem}" stroke-width="${type === 'tree' ? 3 + stage : 3}" fill="none" stroke-linecap="round"/>`;
+      const pairs = Math.min(stage + 1, 4);
+      for (let i = 1; i <= pairs; i++) {
+        const k = i / (pairs + 1), y = ground - h * k, x = cx - 2 + droop * k * k;
+        const len = 9 + stage * 1.5, sag = wilted ? 8 : 0;
+        g += `<path d="M${x} ${y}q-${len * .6} -${len * .7 - sag} -${len} ${-2 + sag}q${len * .5} ${len * .5} ${len} ${2 - sag}z" fill="${i % 2 ? leaf : leafDark}"/>`;
+        g += `<path d="M${x} ${y}q${len * .6} -${len * .7 - sag} ${len} ${-2 + sag}q-${len * .5} ${len * .5} -${len} ${2 - sag}z" fill="${i % 2 ? leafDark : leaf}"/>`;
+      }
+      if (type === 'tree' && stage >= 2) {
+        const r = 12 + stage * 6;
+        g += `<circle cx="${topX}" cy="${topY}" r="${r}" fill="${leafDark}"/><circle cx="${topX - r * .45}" cy="${topY + r * .2}" r="${r * .7}" fill="${leaf}"/><circle cx="${topX + r * .5}" cy="${topY + r * .1}" r="${r * .65}" fill="${leaf}"/>`;
+        if (stage >= 3) [[-.5,.3],[.3,-.3],[.55,.45],[-.15,-.55],[0,.5]].slice(0, stage === 3 ? 3 : 5).forEach(([dx, dy]) => {
+          g += `<circle cx="${topX + dx * r}" cy="${topY + dy * r}" r="3.6" fill="${accent}"/>`;
+        });
+      } else if (stage >= 3) {
+        const petals = type === 'sunflower' ? 12 : 6, pr = type === 'sunflower' ? 10 : 8;
+        const bloom = stage === 3 ? .7 : 1;
+        for (let i = 0; i < petals; i++) {
+          const a = i / petals * Math.PI * 2;
+          g += `<ellipse cx="${topX + Math.cos(a) * pr * .7 * bloom}" cy="${topY + Math.sin(a) * pr * .7 * bloom}" rx="${pr * .55 * bloom}" ry="${pr * .32 * bloom}" transform="rotate(${a * 180 / Math.PI} ${topX + Math.cos(a) * pr * .7 * bloom} ${topY + Math.sin(a) * pr * .7 * bloom})" fill="${accent}"/>`;
+        }
+        g += `<circle cx="${topX}" cy="${topY}" r="${(type === 'sunflower' ? 6 : 4) * bloom}" fill="${type === 'sunflower' ? '#6D4C41' : '#FFD54F'}"/>`;
+      } else if (stage === 2) {
+        g += `<ellipse cx="${topX}" cy="${topY - 3}" rx="4" ry="6" fill="${type === 'sunflower' ? '#8BC34A' : accent}" opacity=".85"/>`;
+      }
+    }
+    // pot
+    g += `<path d="M72 ${ground + 4}h56l-7 40H79z" fill="#C8693F"/>`;
+    g += `<rect x="68" y="${ground - 2}" width="64" height="10" rx="3" fill="#B05A33"/>`;
+    g += `<ellipse cx="${cx}" cy="${ground}" rx="29" ry="3" fill="#5D4037"/>`;
+    return g;
+  }
+
+  // Simulator state
+  const $ = id => document.getElementById(id);
+  const S = { score: 0, streak: 0, missed: 0, log: [], type: 'flower' };
+  let anim = null;
+
+  function render(grow) {
+    const idx = stageIndex(S.score);
+    const wilted = S.missed >= C.wiltAfter;
+    $('stage').textContent = wilted ? 'Solmuş ' + STAGES[idx].label.toLowerCase() : STAGES[idx].label;
+    $('stage').classList.toggle('wilted', wilted);
+    $('score').textContent = Math.round(S.score);
+    $('streak').textContent = S.streak;
+    $('mult').textContent = '×' + Math.min(1 + Math.max(S.streak - 1, 0) * C.bonus, C.maxMult).toFixed(1);
+    $('missed').textContent = S.missed;
+    $('bar').classList.toggle('wilted', wilted);
+    $('bar').firstElementChild.style.width = S.score + '%';
+    $('log').innerHTML = S.log.slice(-21).map(d => d ? '<b title="Tamamlandı"></b>' : '<b class="m" title="Kaçırıldı"></b>').join('');
+
+    const svg = $('plant');
+    cancelAnimationFrame(anim);
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!grow || reduce) { svg.innerHTML = drawPlant(S.type, idx, wilted); return; }
+    const t0 = performance.now();
+    const step = now => {
+      const p = Math.min((now - t0) / 450, 1), e = 1 - Math.pow(1 - p, 3);
+      svg.innerHTML = drawPlant(S.type, idx, wilted, .88 + .12 * e);
+      if (p < 1) anim = requestAnimationFrame(step);
+    };
+    anim = requestAnimationFrame(step);
+  }
+
+  function say(msg) { $('toast').textContent = msg; }
+
+  $('water').addEventListener('click', () => {
+    const before = stageIndex(S.score), revived = S.missed >= C.wiltAfter;
+    S.streak += 1; S.missed = 0;
+    const pts = C.base * Math.min(1 + (S.streak - 1) * C.bonus, C.maxMult);
+    S.score = Math.min(100, S.score + pts);
+    S.log.push(1);
+    const after = stageIndex(S.score);
+    say(revived ? 'Canlandı! Seri yeniden başladı.'
+      : after > before ? `Evre atladı: ${STAGES[after].label} 🌱`
+      : `+${pts.toFixed(1)} puan. Seri ${S.streak} gün.`);
+    render(true);
+  });
+
+  $('skip').addEventListener('click', () => {
+    S.streak = 0; S.missed += 1; S.log.push(0);
+    let pen = 0;
+    if (S.missed > C.grace) pen = Math.min(C.decayBase + C.decayInc * (S.missed - C.grace - 1), C.maxDecay);
+    S.score = Math.max(0, S.score - pen);
+    say(pen === 0 ? 'İlk kaçırma tolere edildi, ama seri sıfırlandı.'
+      : S.missed >= C.wiltAfter ? `−${pen} puan. Bitki soluyor, bir kez sula.`
+      : `−${pen} puan.`);
+    render(false);
+  });
+
+  $('reset').addEventListener('click', () => {
+    Object.assign(S, { score: 0, streak: 0, missed: 0, log: [] });
+    say('Yeni tohum ekildi.'); render(false);
+  });
+
+  document.querySelectorAll('.types button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.types button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    S.type = b.dataset.type; render(true);
+  }));
+
+  // Start at a realistic mid state: a 10-day streak.
+  for (let i = 0; i < 10; i++) { S.streak++; S.score += C.base * Math.min(1 + (S.streak - 1) * C.bonus, C.maxMult); S.log.push(1); }
+  render(false);
+
+  // Stage ruler
+  $('ruler').innerHTML = STAGES.map((s, i) => `
+    <div>
+      <svg viewBox="30 20 140 140" aria-hidden="true">${drawPlant(i === 4 ? 'tree' : 'flower', i, false)}</svg>
+      <h3>${s.label}</h3>
+      <span class="num">${s.min}–${s.max}</span>
+    </div>`).join('');
+
+  $('copy').addEventListener('click', e => {
+    const done = () => { e.target.textContent = 'Kopyalandı'; setTimeout(() => e.target.textContent = 'Kopyala', 1600); };
+    const fallback = () => { const r = document.createRange(); r.selectNodeContents($('cmd')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+    try { navigator.clipboard.writeText($('cmd').textContent).then(done, fallback); } catch { fallback(); }
+  });
+})();
+</script>
