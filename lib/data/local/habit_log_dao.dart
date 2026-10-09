@@ -5,7 +5,7 @@ import '../models/habit_log.dart';
 class HabitLogDao {
   const HabitLogDao(this._db);
 
-  final Database _db;
+  final DatabaseExecutor _db;
   static const _table = 'habit_logs';
 
   /// Aynı alışkanlık + gün için tek kayıt tutulur; varsa üzerine yazılır.

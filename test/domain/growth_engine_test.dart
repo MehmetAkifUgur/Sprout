@@ -119,7 +119,7 @@ void main() {
     });
 
     test('N gün ihmal sonrası bitki solar', () {
-      final n = GrowthConstants.wiltAfterMissedDaily;
+      const n = GrowthConstants.wiltAfterMissedDaily;
       final almost = eval(daily(), range(0, 9), todayOffset: 9 + n);
       expect(almost.missedInARow, n - 1);
       expect(almost.isWilted, isFalse);
@@ -188,6 +188,110 @@ void main() {
       }, todayOffset: 7 * (GrowthConstants.wiltAfterMissedWeekly + 1));
       expect(r.missedInARow, GrowthConstants.wiltAfterMissedWeekly);
       expect(r.isWilted, isTrue);
+    });
+  });
+
+  group('haftada N kez', () {
+    HabitSchedule weekly(int n) => HabitSchedule(
+      frequency: TargetFrequency.weekly,
+      startDate: start,
+      timesPerWeek: n,
+    );
+
+    test('hedef sayıya ulaşmayan hafta tamamlanmış sayılmaz', () {
+      final r = eval(weekly(3), {
+        addDays(start, 0),
+        addDays(start, 2),
+      }, todayOffset: 7);
+      expect(r.score, 0);
+      expect(r.missedInARow, 1);
+    });
+
+    test('hedef sayıya ulaşan hafta tam puan alır', () {
+      final r = eval(weekly(3), {
+        addDays(start, 0),
+        addDays(start, 2),
+        addDays(start, 4),
+      }, todayOffset: 7);
+      expect(r.score, GrowthConstants.weeklyBasePoints);
+      expect(r.currentStreak, 1);
+    });
+
+    test('bu haftaki tamamlama sayısı', () {
+      final n = GrowthEngine.completionsInWeek(weekly(3), {
+        addDays(start, 6),
+        addDays(start, 7),
+        addDays(start, 9),
+      }, addDays(start, 10));
+      expect(n, 2);
+    });
+
+    test('etiket hedefi gösterir', () {
+      expect(weekly(1).label, 'Haftada bir');
+      expect(weekly(4).label, 'Haftada 4 kez');
+      expect(daily().label, 'Her gün');
+    });
+  });
+
+  group('tatil', () {
+    HabitSchedule pausedDaily(int from, [int? to]) => HabitSchedule(
+      frequency: TargetFrequency.daily,
+      startDate: start,
+      pauses: [
+        PauseRange(
+          start: addDays(start, from),
+          end: to == null ? null : addDays(start, to),
+        ),
+      ],
+    );
+
+    test('tatildeki kaçırmalar ceza vermez ve soldurmaz', () {
+      final r = eval(pausedDaily(5), range(0, 4), todayOffset: 20);
+      final before = eval(daily(), range(0, 4), todayOffset: 5);
+      expect(r.score, before.score);
+      expect(r.isWilted, isFalse);
+      expect(r.missedInARow, 0);
+    });
+
+    test('tatil serisi bozmaz, tatilden sonra devam eder', () {
+      final r = eval(pausedDaily(3, 6), {
+        ...range(0, 2),
+        ...range(7, 8),
+      }, todayOffset: 8);
+      expect(r.currentStreak, 5);
+    });
+
+    test('tatilde tamamlanan gün yine puan verir', () {
+      final r = eval(pausedDaily(0), {addDays(start, 2)}, todayOffset: 3);
+      expect(r.score, GrowthConstants.dailyBasePoints);
+    });
+
+    test('tatil bitince kaçırmalar yeniden sayılır', () {
+      final r = eval(pausedDaily(0, 2), {}, todayOffset: 3 + 3);
+      expect(r.missedInARow, 3);
+      expect(r.isWilted, isTrue);
+    });
+
+    test('tatile denk gelen hafta kaçırılmış sayılmaz', () {
+      final s = HabitSchedule(
+        frequency: TargetFrequency.weekly,
+        startDate: start,
+        pauses: [PauseRange(start: addDays(start, 8), end: addDays(start, 8))],
+      );
+      final r = eval(s, {addDays(start, 0)}, todayOffset: 14);
+      expect(r.missedInARow, 0);
+      expect(r.currentStreak, 1);
+    });
+
+    test('tatil günleri tamamlanma oranını düşürmez', () {
+      final rate = GrowthEngine.completionRate(
+        schedule: pausedDaily(2, 3),
+        completedDays: range(0, 1),
+        from: start,
+        to: addDays(start, 4),
+        today: addDays(start, 4),
+      );
+      expect(rate, 1);
     });
   });
 

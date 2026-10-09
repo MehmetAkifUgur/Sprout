@@ -4,6 +4,7 @@ import '../../domain/date_utils.dart';
 import '../../domain/growth_engine.dart';
 import '../../domain/habit_schedule.dart';
 import 'habits_provider.dart';
+import 'providers.dart';
 
 class DayStat {
   const DayStat(this.day, this.completed, this.due);
@@ -61,8 +62,10 @@ StatsData computeStats(List<HabitView> views, DateTime today) {
       if (v.habit.targetFrequency == TargetFrequency.weekly) continue;
       if (!v.habit.schedule.isDueOn(day)) continue;
       final completed = v.completedDays.contains(day);
-      // Bugün henüz tamamlanmamış olanlar oranı düşürmesin.
-      if (day == t && !completed) continue;
+      // Bugün henüz tamamlanmamış ya da tatildeki günler oranı düşürmesin.
+      if (!completed && (day == t || v.habit.schedule.isPausedOn(day))) {
+        continue;
+      }
       due++;
       if (completed) done++;
     }
@@ -92,7 +95,9 @@ final statsProvider = Provider<AsyncValue<StatsData>>((ref) {
   return ref
       .watch(habitsProvider)
       .whenData(
-        (views) =>
-            computeStats(views, views.firstOrNull?.today ?? DateTime.now()),
+        (views) => computeStats(
+          views,
+          views.firstOrNull?.today ?? ref.read(clockProvider)(),
+        ),
       );
 });

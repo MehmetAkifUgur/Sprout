@@ -23,3 +23,8 @@ final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 final onboardingDoneProvider = FutureProvider<bool>(
   (ref) => ref.watch(habitRepositoryProvider).isOnboardingDone(),
 );
+
+/// Sıfırlamadan önce alınmış, geri yüklenebilir bir yedek var mı?
+final resetBackupAvailableProvider = FutureProvider<bool>(
+  (ref) => ref.watch(habitRepositoryProvider).hasResetBackup(),
+);

@@ -45,6 +45,7 @@ dependencies:
   sqflite_common_ffi: ^2.4.3
   flutter_localizations:
     sdk: flutter
+  file_picker: ^13.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

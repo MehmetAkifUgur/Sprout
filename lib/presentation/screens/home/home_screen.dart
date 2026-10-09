@@ -1,13 +1,18 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/growth_constants.dart';
+import '../../../core/constants/plant_types.dart';
 import '../../providers/habits_provider.dart';
 import '../../providers/providers.dart';
 import '../../widgets/habit_card.dart';
 import '../../widgets/plant_widget.dart';
-import '../../../core/constants/plant_types.dart';
 import '../../widgets/progress_ring.dart';
 import '../add_habit/add_habit_screen.dart';
 import '../habit_detail/habit_detail_screen.dart';
@@ -18,6 +23,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final habits = ref.watch(habitsProvider);
+    final hasBackup = ref.watch(resetBackupAvailableProvider).value ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -26,15 +32,34 @@ class HomeScreen extends ConsumerWidget {
           PopupMenuButton<String>(
             onSelected: (v) => switch (v) {
               'notify' => _enableNotifications(context, ref),
+              'export' => _export(context, ref),
+              'import' => _import(context, ref),
+              'restore' => _restore(context, ref),
               'reset' => _confirmReset(context, ref),
               _ => null,
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
+            itemBuilder: (_) => [
+              const PopupMenuItem(
                 value: 'notify',
                 child: Text('Bildirim iznini ver'),
               ),
-              PopupMenuItem(value: 'reset', child: Text('Uygulamayı sıfırla')),
+              const PopupMenuItem(
+                value: 'export',
+                child: Text('Yedeği dışa aktar'),
+              ),
+              const PopupMenuItem(
+                value: 'import',
+                child: Text('Yedeği içe aktar'),
+              ),
+              if (hasBackup)
+                const PopupMenuItem(
+                  value: 'restore',
+                  child: Text('Sıfırlamayı geri al'),
+                ),
+              const PopupMenuItem(
+                value: 'reset',
+                child: Text('Uygulamayı sıfırla'),
+              ),
             ],
           ),
         ],
@@ -68,13 +93,125 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  /// Tüm veriyi bir JSON dosyasına yazar. Konumu kullanıcı sistemin kendi
+  /// dosya ekranında seçer (Android'de Storage Access Framework); uygulama
+  /// hiçbir depolama izni istemez.
+  Future<void> _export(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final json = await ref.read(habitsProvider.notifier).exportJson();
+    final day = DateFormat('yyyy-MM-dd').format(ref.read(clockProvider)());
+    try {
+      final saved = await FilePicker.saveFile(
+        dialogTitle: 'Yedeği kaydet',
+        fileName: 'bitki-buyut-yedek-$day.json',
+        bytes: utf8.encode(json),
+        mimeType: 'application/json',
+      );
+      if (saved == null) return; // Kullanıcı vazgeçti.
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Yedek kaydedildi 🌱')),
+      );
+    } on Exception catch (e) {
+      debugPrint('Yedek kaydedilemedi: $e');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Yedek kaydedilemedi.')),
+      );
+    }
+  }
+
+  /// Sistem dosya seçicisinden bir yedek dosyası alıp içe aktarır.
+  Future<void> _import(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final String json;
+    try {
+      // Android'de .json için güvenilir bir MIME türü yok; her dosya
+      // seçilebilir, içerik aşağıda doğrulanır.
+      final file = await FilePicker.pickFile(dialogTitle: 'Yedek dosyası seç');
+      if (file == null) return;
+      if ((await file.length() ?? 0) > _maxBackupBytes) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Bu dosya bir yedek için çok büyük.')),
+        );
+        return;
+      }
+      json = utf8.decode(await file.readAsBytes());
+    } on Exception catch (e) {
+      debugPrint('Yedek okunamadı: $e');
+      messenger.showSnackBar(const SnackBar(content: Text('Dosya okunamadı.')));
+      return;
+    }
+    if (!context.mounted) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Yedek geri yüklensin mi?'),
+        content: const Text(
+          'Yedekteki alışkanlıklar şu anki bahçenin yerini alır.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Geri yükle'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final count = await ref.read(habitsProvider.notifier).importJson(json);
+      messenger.showSnackBar(
+        SnackBar(content: Text('$count alışkanlık geri yüklendi 🌱')),
+      );
+    } on FormatException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  /// Yıllarca kayıt bile birkaç yüz KB tutar; bunun üstü yanlış dosyadır.
+  static const _maxBackupBytes = 5 * 1024 * 1024;
+
+  Future<void> _restore(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sıfırlama geri alınsın mı?'),
+        content: const Text(
+          'Son sıfırlamadan önceki bahçen geri gelir. Şu anki alışkanlıkların '
+          'yerini alır.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Geri yükle'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await ref.read(habitsProvider.notifier).restoreResetBackup();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Bahçen geri geldi 🌿')),
+    );
+  }
+
   Future<void> _confirmReset(BuildContext context, WidgetRef ref) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Uygulama sıfırlansın mı?'),
         content: const Text(
-          'Tüm alışkanlıklar, geçmiş kayıtlar ve bitkiler kalıcı olarak silinir.',
+          'Tüm alışkanlıklar, geçmiş kayıtlar ve bitkiler silinir. Fikrini '
+          'değiştirirsen menüden "Sıfırlamayı geri al" ile geri getirebilirsin.',
         ),
         actions: [
           TextButton(
@@ -102,7 +239,7 @@ class _Garden extends ConsumerWidget {
     final theme = Theme.of(context);
     final due = views.where((v) => v.dueToday).toList();
     final done = due.where((v) => v.completedToday).length;
-    final today = DateFormat('d MMMM EEEE').format(DateTime.now());
+    final today = DateFormat('d MMMM EEEE').format(ref.watch(clockProvider)());
 
     return CustomScrollView(
       slivers: [
@@ -179,7 +316,8 @@ class _Garden extends ConsumerWidget {
   }
 }
 
-/// Bugünü işaretler; evre değiştiyse kullanıcıya bildirir.
+/// Günü işaretler; sonucu "Geri al" seçeneğiyle gösterir, evre değiştiyse
+/// kutlar ya da uyarır.
 Future<void> toggleAndCelebrate(
   BuildContext context,
   WidgetRef ref,
@@ -188,18 +326,37 @@ Future<void> toggleAndCelebrate(
 }) async {
   final messenger = ScaffoldMessenger.of(context);
   final notifier = ref.read(habitsProvider.notifier);
-  final change = day == null
-      ? await notifier.toggleToday(habitId)
-      : await notifier.toggleDay(habitId, day);
-  if (change == null) return;
+  final target = day ?? ref.read(clockProvider)();
+  final result = await notifier.toggleDay(habitId, target);
+  if (result == null) return;
+
+  final change = result.stageChange;
+  if (change != null && change.isUp) {
+    unawaited(HapticFeedback.heavyImpact());
+  } else {
+    unawaited(HapticFeedback.selectionClick());
+  }
+
+  final name = result.habitName;
+  final String message;
+  if (change != null) {
+    message = change.isUp
+        ? '🎉 $name artık bir ${change.to.label}!'
+        : '$name ${change.to.label} evresine geriledi.';
+  } else {
+    message = result.completed
+        ? '$name sulandı 💧'
+        : '$name işareti kaldırıldı';
+  }
+
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
-        content: Text(
-          change.isUp
-              ? '🎉 ${change.habitName} artık bir ${change.to.label}!'
-              : '${change.habitName} ${change.to.label} evresine geriledi.',
+        content: Text(message),
+        action: SnackBarAction(
+          label: 'Geri al',
+          onPressed: () => notifier.toggleDay(habitId, target),
         ),
       ),
     );

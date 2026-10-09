@@ -46,6 +46,15 @@ class HabitDetailScreen extends ConsumerWidget {
         title: Text(habit.name),
         actions: [
           IconButton(
+            tooltip: habit.isPaused ? 'Tatili bitir' : 'Tatile al',
+            icon: Icon(
+              habit.isPaused
+                  ? Icons.play_circle_outline
+                  : Icons.beach_access_outlined,
+            ),
+            onPressed: () => _togglePause(context, ref, view),
+          ),
+          IconButton(
             tooltip: 'Düzenle',
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => Navigator.of(context).push(
@@ -89,7 +98,22 @@ class HabitDetailScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           _StageBar(score: growth.score),
-          if (growth.isWilted) ...[
+          if (habit.isPaused) ...[
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.beach_access_outlined),
+                title: Text(
+                  '${DateFormat('d MMMM').format(habit.pauses.last.start)} '
+                  'tarihinden beri tatilde',
+                ),
+                subtitle: const Text(
+                  'Kaçırılan günler ceza almaz, serin bozulmaz. '
+                  'Tamamladığın günler yine puan kazandırır.',
+                ),
+              ),
+            ),
+          ] else if (growth.isWilted) ...[
             const SizedBox(height: 12),
             Card(
               color: theme.colorScheme.errorContainer,
@@ -129,7 +153,7 @@ class HabitDetailScreen extends ConsumerWidget {
           Text('Geçmiş', style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
-            '${habit.targetFrequency.label} · '
+            '${habit.schedule.label} · '
             'Geçmiş bir günü düzeltmek için üzerine dokun.',
             style: theme.textTheme.bodySmall,
           ),
@@ -168,6 +192,28 @@ class HabitDetailScreen extends ConsumerWidget {
           title: Text(fmt.format(d)),
         ),
     ];
+  }
+
+  Future<void> _togglePause(
+    BuildContext context,
+    WidgetRef ref,
+    HabitView view,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final notifier = ref.read(habitsProvider.notifier);
+    if (view.habit.isPaused) {
+      await notifier.resumeHabit(view.id);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Tatil bitti, bitkin seni bekliyor 🌱')),
+      );
+    } else {
+      await notifier.pauseHabit(view.id);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Tatile alındı. Hatırlatmalar duraklatıldı 🌴'),
+        ),
+      );
+    }
   }
 
   Future<void> _confirmDelete(
@@ -345,7 +391,9 @@ class _HistoryCalendar extends StatelessWidget {
     final inRange = !day.isAfter(today) && !day.isBefore(created);
     final done = view.completedDays.contains(day);
     final due = schedule.isDueOn(day);
-    final missed = inRange && !done && due && !weekly && day != today;
+    final paused = inRange && schedule.isPausedOn(day);
+    final missed =
+        inRange && !done && due && !paused && !weekly && day != today;
 
     final Color bg;
     final Color fg;
@@ -355,6 +403,9 @@ class _HistoryCalendar extends StatelessWidget {
     } else if (missed) {
       bg = AppColors.missed.withValues(alpha: 0.25);
       fg = scheme.onSurface;
+    } else if (paused) {
+      bg = scheme.surfaceContainerHighest;
+      fg = scheme.onSurfaceVariant;
     } else {
       bg = Colors.transparent;
       fg = inRange && due

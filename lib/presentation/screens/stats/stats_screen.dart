@@ -249,7 +249,7 @@ class _HabitStatTile extends StatelessWidget {
         ),
         title: Text(v.habit.name),
         subtitle: Text(
-          '${v.habit.targetFrequency.label} · seri ${v.growth.currentStreak} · '
+          '${v.habit.schedule.label} · seri ${v.growth.currentStreak} · '
           'en uzun ${v.growth.longestStreak}',
         ),
         trailing: ProgressRing(
