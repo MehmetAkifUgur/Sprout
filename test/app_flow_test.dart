@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,17 +18,81 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class FakeNotificationService extends NotificationService {
   final synced = <Habit>[];
+  final notBefore = <DateTime?>[];
 
   @override
   Future<void> init() async {}
   @override
   Future<bool> requestPermission() async => true;
   @override
-  Future<void> syncHabit(Habit habit) async => synced.add(habit);
+  Future<void> syncHabit(Habit habit, {DateTime? notBefore}) async {
+    synced.add(habit);
+    this.notBefore.add(notBefore);
+  }
+
   @override
   Future<void> cancelHabit(int habitId) async {}
   @override
   Future<void> cancelAll() async {}
+}
+
+/// Sistem dosya ekranı yerine belleğe yazıp okuyan sahte seçici.
+class FakeFilePicker extends FilePickerPlatform {
+  Uint8List? saved;
+  String? savedName;
+
+  @override
+  Future<Uri?> saveFile({
+    required String fileName,
+    required Uint8List bytes,
+    required String mimeType,
+    String? dialogTitle,
+    String? initialDirectory,
+    Function(FilePickerStatus)? onFileSaving,
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async {
+    saved = bytes;
+    savedName = fileName;
+    return Uri.parse('content://test/$fileName');
+  }
+
+  @override
+  Future<PlatformFile?> pickFile({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    int compressionQuality = 0,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    DarwinOptions darwinOptions = const DarwinOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async => saved == null ? null : _MemoryFile(savedName!, saved!);
+}
+
+final class _MemoryFile extends PlatformFile {
+  _MemoryFile(this.name, this.bytes);
+
+  @override
+  final String name;
+  final Uint8List bytes;
+
+  @override
+  Uri get uri => Uri.parse('content://test/$name');
+  @override
+  get xFile => throw UnimplementedError();
+  @override
+  int? lengthSync() => bytes.length;
+  @override
+  Future<int?> length() async => bytes.length;
+  @override
+  Future<Uint8List> readAsBytes() async => bytes;
+  @override
+  Stream<Uint8List> readAsByteStream() => Stream.value(bytes);
 }
 
 void main() {
@@ -102,6 +169,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Tamamlandı'), findsOneWidget);
     expect(find.text('1/1'), findsOneWidget);
+    // Bugün tamamlandı: hatırlatma yarından başlar.
+    expect(notifications.notBefore.last, addDays(dateOnly(now), 1));
 
     // Uygulamayı "kapatıp aç".
     await tester.pumpWidget(const SizedBox());
@@ -195,5 +264,149 @@ void main() {
 
     expect(find.text('Bahçen henüz boş'), findsOneWidget);
     expect(await HabitRepository(database).getHabits(), isEmpty);
+  });
+
+  testWidgets('sulama geri alınabilir', (tester) async {
+    await skipOnboarding();
+    await HabitRepository(database).addHabit(
+      Habit(
+        name: 'Esneme',
+        targetFrequency: TargetFrequency.daily,
+        createdAt: now,
+        plantType: 'flower',
+      ),
+    );
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Sula'));
+    await tester.pumpAndSettle();
+    expect(find.text('Esneme sulandı 💧'), findsOneWidget);
+    expect(find.text('Tamamlandı'), findsOneWidget);
+
+    await tester.tap(find.text('Geri al'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sula'), findsOneWidget);
+    expect(find.text('0/1'), findsOneWidget);
+  });
+
+  testWidgets('tatile alınan bitki solmaz, tatil bitirilebilir', (
+    tester,
+  ) async {
+    await skipOnboarding();
+    final repo = HabitRepository(database);
+    final start = addDays(dateOnly(now), -10);
+    final habit = await repo.addHabit(
+      Habit(
+        name: 'Koşu',
+        targetFrequency: TargetFrequency.daily,
+        createdAt: start,
+        plantType: 'tree',
+      ),
+    );
+    for (var i = 0; i < 5; i++) {
+      await repo.setCompleted(habit.id!, addDays(start, i), true);
+    }
+    await repo.pauseHabit(habit.id!, addDays(start, 5));
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.text('Tatilde 🌴'), findsOneWidget);
+    expect(find.textContaining('Soluyor!'), findsNothing);
+    // Tatilde bugün beklenen alışkanlık yok.
+    expect(find.text('0/0'), findsOneWidget);
+
+    await tester.tap(find.text('Koşu'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('tarihinden beri tatilde'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Tatili bitir'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Tatile al'), findsOneWidget);
+    expect((await repo.getHabit(habit.id!))!.isPaused, isFalse);
+  });
+
+  testWidgets('sıklık değişince puan önizlemesiyle onay istenir', (
+    tester,
+  ) async {
+    await skipOnboarding();
+    final repo = HabitRepository(database);
+    final start = addDays(dateOnly(now), -6);
+    final habit = await repo.addHabit(
+      Habit(
+        name: 'Okuma',
+        targetFrequency: TargetFrequency.daily,
+        createdAt: start,
+        plantType: 'flower',
+      ),
+    );
+    for (var i = 0; i < 6; i++) {
+      await repo.setCompleted(habit.id!, addDays(start, i), true);
+    }
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Okuma'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Düzenle'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Haftalık'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Kaydet'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kaydet'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sıklık değişsin mi?'), findsOneWidget);
+    expect(find.textContaining('Puan: '), findsOneWidget);
+
+    await tester.tap(find.text('Vazgeç'));
+    await tester.pumpAndSettle();
+    expect(
+      (await repo.getHabit(habit.id!))!.targetFrequency,
+      TargetFrequency.daily,
+    );
+  });
+
+  testWidgets('yedek dosyaya kaydedilir ve geri yüklenir', (tester) async {
+    final picker = FakeFilePicker();
+    FilePickerPlatform.instance = picker;
+    await skipOnboarding();
+    final repo = HabitRepository(database);
+    final habit = await repo.addHabit(
+      Habit(
+        name: 'Günlük yaz',
+        targetFrequency: TargetFrequency.daily,
+        createdAt: addDays(dateOnly(now), -2),
+        plantType: 'cactus',
+      ),
+    );
+    await repo.setCompleted(habit.id!, addDays(dateOnly(now), -1), true);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Yedeği dışa aktar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Yedek kaydedildi 🌱'), findsOneWidget);
+    expect(picker.savedName, 'bitki-buyut-yedek-2026-09-15.json');
+
+    await repo.deleteHabit(habit.id!);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.text('Bahçen henüz boş'), findsOneWidget);
+
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Yedeği içe aktar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Geri yükle'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Günlük yaz'), findsOneWidget);
+    final restored = (await repo.getHabits()).single;
+    expect(await repo.getCompletedDays(restored.id!), {
+      addDays(dateOnly(now), -1),
+    });
   });
 }

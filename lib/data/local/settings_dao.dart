@@ -16,5 +16,11 @@ class SettingsDao {
     'value': value,
   }, conflictAlgorithm: ConflictAlgorithm.replace);
 
-  Future<void> clear() => _db.delete(_table);
+  Future<void> clear({Set<String> keep = const {}}) => keep.isEmpty
+      ? _db.delete(_table)
+      : _db.delete(
+          _table,
+          where: 'key NOT IN (${List.filled(keep.length, '?').join(',')})',
+          whereArgs: keep.toList(),
+        );
 }

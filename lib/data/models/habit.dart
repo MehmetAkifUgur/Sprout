@@ -10,6 +10,8 @@ class Habit {
     required this.plantType,
     this.growthScore = 0,
     this.reminderMinutes,
+    this.timesPerWeek = 1,
+    this.pauses = const [],
   });
 
   final int? id;
@@ -27,11 +29,22 @@ class Habit {
   /// Günlük hatırlatma saati, gece yarısından itibaren dakika. null = hatırlatma yok.
   final int? reminderMinutes;
 
+  /// [TargetFrequency.weekly] için haftada kaç farklı gün tamamlanmalı.
+  final int timesPerWeek;
+
+  /// Tatil aralıkları. Ayrı tabloda tutulur; [toMap]'e girmez.
+  final List<PauseRange> pauses;
+
   HabitSchedule get schedule => HabitSchedule(
     frequency: targetFrequency,
     customDays: customDays,
     startDate: createdAt,
+    timesPerWeek: timesPerWeek,
+    pauses: pauses,
   );
+
+  /// Bugünü kapsayan, bitiş tarihi olmayan tatil var mı?
+  bool get isPaused => pauses.any((p) => p.end == null);
 
   Habit copyWith({
     int? id,
@@ -42,6 +55,8 @@ class Habit {
     String? plantType,
     double? growthScore,
     int? Function()? reminderMinutes,
+    int? timesPerWeek,
+    List<PauseRange>? pauses,
   }) {
     return Habit(
       id: id ?? this.id,
@@ -54,6 +69,8 @@ class Habit {
       reminderMinutes: reminderMinutes != null
           ? reminderMinutes()
           : this.reminderMinutes,
+      timesPerWeek: timesPerWeek ?? this.timesPerWeek,
+      pauses: pauses ?? this.pauses,
     );
   }
 
@@ -66,6 +83,7 @@ class Habit {
     'plant_type': plantType,
     'growth_score': growthScore,
     'reminder_minutes': reminderMinutes,
+    'times_per_week': timesPerWeek,
   };
 
   factory Habit.fromMap(Map<String, Object?> map) {
@@ -81,6 +99,7 @@ class Habit {
       plantType: map['plant_type'] as String,
       growthScore: (map['growth_score'] as num).toDouble(),
       reminderMinutes: map['reminder_minutes'] as int?,
+      timesPerWeek: (map['times_per_week'] as int?) ?? 1,
     );
   }
 }

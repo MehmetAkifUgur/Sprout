@@ -11,7 +11,8 @@ class AppDatabase {
   /// v1: habits + habit_logs (Hafta 1)
   /// v2: habits.reminder_minutes (Hafta 3)
   /// v3: app_settings (Hafta 4)
-  static const version = 3;
+  /// v4: habits.times_per_week + habit_pauses (haftada N kez, tatil modu)
+  static const version = 4;
 
   /// [factory] ve [path] testlerde bellek içi (ffi) veritabanı için verilir.
   static Future<AppDatabase> open({
@@ -29,10 +30,12 @@ class AppDatabase {
           await _createV1(db);
           await _migrateToV2(db);
           await _migrateToV3(db);
+          await _migrateToV4(db);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) await _migrateToV2(db);
           if (oldVersion < 3) await _migrateToV3(db);
+          if (oldVersion < 4) await _migrateToV4(db);
         },
       ),
     );
@@ -74,6 +77,23 @@ class AppDatabase {
           value TEXT NOT NULL
         )
       ''');
+
+  static Future<void> _migrateToV4(Database db) async {
+    final batch = db.batch()
+      ..execute(
+        'ALTER TABLE habits ADD COLUMN times_per_week INTEGER NOT NULL DEFAULT 1',
+      )
+      ..execute('''
+        CREATE TABLE habit_pauses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          habit_id INTEGER NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
+          start_date TEXT NOT NULL,
+          end_date TEXT
+        )
+      ''')
+      ..execute('CREATE INDEX idx_pauses_habit ON habit_pauses(habit_id)');
+    await batch.commit(noResult: true);
+  }
 
   Future<void> close() => db.close();
 }

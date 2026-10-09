@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
+import 'domain/date_utils.dart';
 import 'presentation/providers/habits_provider.dart';
 import 'presentation/providers/providers.dart';
 import 'presentation/screens/home/home_screen.dart';
@@ -53,19 +56,33 @@ class HomeShell extends ConsumerStatefulWidget {
 
 class _HomeShellState extends ConsumerState<HomeShell> {
   late final AppLifecycleListener _lifecycle;
+  Timer? _midnight;
   int _tab = 0;
 
   @override
   void initState() {
     super.initState();
     // Uygulama gece yarısını geçip ön plana dönerse puanlar yeniden hesaplanır.
-    _lifecycle = AppLifecycleListener(
-      onResume: () => ref.read(habitsProvider.notifier).refreshIfDayChanged(),
-    );
+    _lifecycle = AppLifecycleListener(onResume: _onDayMaybeChanged);
+    _scheduleMidnight();
+  }
+
+  /// Uygulama ön planda açık kalırken de gece yarısında bahçeyi yeniler.
+  void _scheduleMidnight() {
+    _midnight?.cancel();
+    final now = ref.read(clockProvider)();
+    final wait = addDays(dateOnly(now), 1).difference(now);
+    _midnight = Timer(wait + const Duration(seconds: 1), _onDayMaybeChanged);
+  }
+
+  void _onDayMaybeChanged() {
+    ref.read(habitsProvider.notifier).refreshIfDayChanged();
+    _scheduleMidnight();
   }
 
   @override
   void dispose() {
+    _midnight?.cancel();
     _lifecycle.dispose();
     super.dispose();
   }

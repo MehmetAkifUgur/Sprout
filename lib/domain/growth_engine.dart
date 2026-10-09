@@ -9,6 +9,7 @@ class Period {
     required this.end,
     required this.completed,
     required this.isOpen,
+    this.paused = false,
   });
 
   final DateTime start;
@@ -19,6 +20,10 @@ class Period {
 
   /// Bugünü içeren, henüz bitmemiş dönem. Tamamlanmamışsa ceza verilmez.
   final bool isOpen;
+
+  /// Duraklatma (tatil) aralığına denk gelen dönem. Tamamlanmamışsa ceza
+  /// verilmez ve seri bozulmaz; tamamlanmışsa normal puan alır.
+  final bool paused;
 }
 
 class GrowthResult {
@@ -86,7 +91,7 @@ class GrowthEngine {
         missed = 0;
         if (streak > longest) longest = streak;
         score += base * streakMultiplier(streak);
-      } else if (period.isOpen) {
+      } else if (period.isOpen || period.paused) {
         continue;
       } else {
         streak = 0;
@@ -129,6 +134,19 @@ class GrowthEngine {
         : d;
   }
 
+  /// Haftalık alışkanlıkta [today]'in bloğunda tamamlanan gün sayısı.
+  static int completionsInWeek(
+    HabitSchedule schedule,
+    Set<DateTime> completedDays,
+    DateTime today,
+  ) {
+    final start = schedule.weekPeriodStart(today);
+    final end = addDays(start, 7);
+    return completedDays
+        .where((d) => !d.isBefore(start) && d.isBefore(end))
+        .length;
+  }
+
   /// [from]–[to] aralığındaki (dahil) dönemler, kronolojik sırayla.
   static List<Period> periodsBetween({
     required HabitSchedule schedule,
@@ -149,19 +167,19 @@ class GrowthEngine {
       cursor = schedule.weekPeriodStart(cursor);
       while (!cursor.isAfter(last)) {
         final end = addDays(cursor, 6);
-        var completed = false;
+        var count = 0;
+        var paused = false;
         for (var d = cursor; !d.isAfter(end); d = addDays(d, 1)) {
-          if (days.contains(d)) {
-            completed = true;
-            break;
-          }
+          if (days.contains(d)) count++;
+          if (schedule.isPausedOn(d)) paused = true;
         }
         periods.add(
           Period(
             start: cursor,
             end: end,
-            completed: completed,
+            completed: count >= schedule.timesPerWeek,
             isOpen: !end.isBefore(todayDay),
+            paused: paused,
           ),
         );
         cursor = addDays(cursor, 7);
@@ -177,13 +195,15 @@ class GrowthEngine {
           end: d,
           completed: days.contains(d),
           isOpen: d == todayDay,
+          paused: schedule.isPausedOn(d),
         ),
       );
     }
     return periods;
   }
 
-  /// Aralıktaki tamamlanma oranı (0–1). Açık ve tamamlanmamış dönem sayılmaz.
+  /// Aralıktaki tamamlanma oranı (0–1). Açık ya da duraklatılmış ve
+  /// tamamlanmamış dönem sayılmaz.
   /// Değerlendirilecek dönem yoksa null.
   static double? completionRate({
     required HabitSchedule schedule,
@@ -198,7 +218,7 @@ class GrowthEngine {
       from: from,
       to: to,
       today: today,
-    ).where((p) => p.completed || !p.isOpen).toList();
+    ).where((p) => p.completed || !(p.isOpen || p.paused)).toList();
     if (periods.isEmpty) return null;
     return periods.where((p) => p.completed).length / periods.length;
   }

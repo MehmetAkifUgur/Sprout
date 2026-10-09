@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/growth_constants.dart';
@@ -26,15 +27,31 @@ class HabitView {
 
   bool get completedToday => completedDays.contains(today);
 
-  bool get dueToday => habit.schedule.isDueOn(today);
+  bool get pausedToday => habit.schedule.isPausedOn(today);
 
-  /// Günlük/özel: bugün tamamlandı mı. Haftalık: bu hafta bloğunda tamamlandı mı.
+  /// Bugün işaretlenebilir mi (plana göre). Tatilde de tamamlanabilir.
+  bool get canToggleToday => habit.schedule.isDueOn(today);
+
+  /// Bugün yapılması beklenen mi (tatildeyse hayır).
+  bool get dueToday => canToggleToday && !pausedToday;
+
+  /// Haftalık alışkanlıkta bu haftaki bloğun tamamlanan gün sayısı.
+  int get completionsThisWeek =>
+      GrowthEngine.completionsInWeek(habit.schedule, completedDays, today);
+
+  /// Günlük/özel: bugün tamamlandı mı. Haftalık: bu hafta hedefe ulaşıldı mı.
   bool get doneThisPeriod {
     if (habit.targetFrequency != TargetFrequency.weekly) return completedToday;
-    final start = habit.schedule.weekPeriodStart(today);
-    return completedDays.any(
-      (d) => !d.isBefore(start) && d.isBefore(addDays(start, 7)),
-    );
+    return completionsThisWeek >= habit.timesPerWeek;
+  }
+
+  /// Bu dönem zaten tamamlandıysa hatırlatmanın başlayacağı ilk gün.
+  DateTime? get reminderNotBefore {
+    if (!doneThisPeriod) return null;
+    if (habit.targetFrequency == TargetFrequency.weekly) {
+      return addDays(habit.schedule.weekPeriodStart(today), 7);
+    }
+    return addDays(today, 1);
   }
 
   static HabitView compute(Habit habit, Set<DateTime> days, DateTime now) {
@@ -51,6 +68,21 @@ class HabitView {
       today: today,
     );
   }
+}
+
+/// Bir günü işaretlemenin sonucu: yeni durum ve varsa evre değişimi.
+class ToggleResult {
+  const ToggleResult({
+    required this.habitName,
+    required this.completed,
+    this.stageChange,
+  });
+
+  final String habitName;
+
+  /// İşlemden sonra gün tamamlanmış mı.
+  final bool completed;
+  final StageChange? stageChange;
 }
 
 /// Toggle sonrası evre değiştiyse UI'ın kutlama/uyarı göstermesi için döner.
@@ -77,16 +109,12 @@ class HabitsNotifier extends AsyncNotifier<List<HabitView>> {
 
     final habits = await repo.getHabits();
     final allDays = await repo.getAllCompletedDays();
-    final views = <HabitView>[];
-    for (final habit in habits) {
-      final view = HabitView.compute(habit, allDays[habit.id] ?? {}, now);
-      // Gün değişimiyle oluşan solma/büyüme DB'deki önbellek puana yansıtılır.
-      if ((view.growth.score - habit.growthScore).abs() > 1e-6) {
-        await repo.updateScore(view.id, view.growth.score);
-      }
-      views.add(view);
-    }
-    return views;
+    // Puan her seferinde log'lardan hesaplanır; growth_score önbelleği burada
+    // güncellenmez (yalnızca kullanıcı bir günü işaretlediğinde yazılır).
+    return [
+      for (final habit in habits)
+        HabitView.compute(habit, allDays[habit.id] ?? {}, now),
+    ];
   }
 
   /// Uygulama ön plana döndüğünde gün değiştiyse puanları yeniden hesaplar.
@@ -98,35 +126,47 @@ class HabitsNotifier extends AsyncNotifier<List<HabitView>> {
 
   Future<Habit> addHabit(Habit habit) async {
     final saved = await ref.read(habitRepositoryProvider).addHabit(habit);
-    await _syncReminder(saved);
-    ref.invalidateSelf();
-    await future;
+    await _reloadAndSync(saved.id!);
     return saved;
   }
 
   Future<void> updateHabit(Habit habit) async {
     await ref.read(habitRepositoryProvider).updateHabit(habit);
-    await _syncReminder(habit);
-    ref.invalidateSelf();
-    await future;
+    await _reloadAndSync(habit.id!);
+  }
+
+  /// Bugünden itibaren tatile alır; kaçırılan günler ceza almaz.
+  Future<void> pauseHabit(int id) async {
+    await ref
+        .read(habitRepositoryProvider)
+        .pauseHabit(id, ref.read(clockProvider)());
+    await _reloadAndSync(id);
+  }
+
+  /// Tatili bitirir; bugün yeniden normal gün sayılır.
+  Future<void> resumeHabit(int id) async {
+    await ref
+        .read(habitRepositoryProvider)
+        .resumeHabit(id, ref.read(clockProvider)());
+    await _reloadAndSync(id);
   }
 
   Future<void> deleteHabit(int id) async {
     await ref.read(habitRepositoryProvider).deleteHabit(id);
-    try {
-      await ref.read(notificationServiceProvider).cancelHabit(id);
-    } catch (_) {}
+    await _guard('Hatırlatma iptal edilemedi', () {
+      return ref.read(notificationServiceProvider).cancelHabit(id);
+    });
     final current = state.value;
     if (current != null) {
       state = AsyncData([...current.where((v) => v.id != id)]);
     }
   }
 
-  Future<StageChange?> toggleToday(int habitId) {
+  Future<ToggleResult?> toggleToday(int habitId) {
     return toggleDay(habitId, ref.read(clockProvider)());
   }
 
-  Future<StageChange?> toggleDay(int habitId, DateTime day) async {
+  Future<ToggleResult?> toggleDay(int habitId, DateTime day) async {
     final current = await future;
     final index = current.indexWhere((v) => v.id == habitId);
     if (index < 0) return null;
@@ -149,26 +189,84 @@ class HabitsNotifier extends AsyncNotifier<List<HabitView>> {
 
     final next = [...current]..[index] = updated;
     state = AsyncData(next);
+    // Bu dönem tamamlandıysa bugünün hatırlatması atlanır; geri alınırsa döner.
+    if (old.doneThisPeriod != updated.doneThisPeriod) {
+      await _syncReminder(updated);
+    }
 
-    return old.stage == updated.stage
-        ? null
-        : StageChange(old.habit.name, old.stage, updated.stage);
+    return ToggleResult(
+      habitName: old.habit.name,
+      completed: nowCompleted,
+      stageChange: old.stage == updated.stage
+          ? null
+          : StageChange(old.habit.name, old.stage, updated.stage),
+    );
   }
 
+  /// Tüm verileri siler; silmeden önce otomatik bir yedek saklanır.
   Future<void> resetAll() async {
     await ref.read(habitRepositoryProvider).resetAll();
-    try {
-      await ref.read(notificationServiceProvider).cancelAll();
-    } catch (_) {}
+    await _guard('Hatırlatmalar iptal edilemedi', () {
+      return ref.read(notificationServiceProvider).cancelAll();
+    });
     ref.invalidate(onboardingDoneProvider);
+    ref.invalidate(resetBackupAvailableProvider);
     ref.invalidateSelf();
   }
 
-  Future<void> _syncReminder(Habit habit) async {
+  /// Son sıfırlamadan önce alınan yedeği geri getirir.
+  Future<void> restoreResetBackup() async {
+    await ref.read(habitRepositoryProvider).restoreResetBackup();
+    await _afterBulkChange();
+  }
+
+  /// JSON yedeğini içe aktarır; mevcut alışkanlıkların yerini alır.
+  /// Biçim bozuksa [FormatException] atar ve hiçbir şeyi değiştirmez.
+  Future<int> importJson(String json) async {
+    final count = await ref.read(habitRepositoryProvider).importJson(json);
+    await _afterBulkChange();
+    return count;
+  }
+
+  Future<String> exportJson() => ref.read(habitRepositoryProvider).exportJson();
+
+  Future<void> _afterBulkChange() async {
+    ref.invalidate(onboardingDoneProvider);
+    ref.invalidateSelf();
+    final views = await future;
+    await _guard('Hatırlatmalar iptal edilemedi', () {
+      return ref.read(notificationServiceProvider).cancelAll();
+    });
+    for (final v in views) {
+      await _syncReminder(v);
+    }
+  }
+
+  Future<void> _reloadAndSync(int id) async {
+    ref.invalidateSelf();
+    final views = await future;
+    final view = views.where((v) => v.id == id).firstOrNull;
+    if (view != null) await _syncReminder(view);
+  }
+
+  Future<void> _syncReminder(HabitView view) => _guard(
+    'Hatırlatma planlanamadı',
+    () => ref
+        .read(notificationServiceProvider)
+        .syncHabit(view.habit, notBefore: view.reminderNotBefore),
+  );
+
+  /// Bildirim hataları kaydı engellemez (ör. izin yok, test ortamı), ama
+  /// sessizce yutulmaz: hata ayıklama çıktısına yazılır.
+  static Future<void> _guard(
+    String what,
+    Future<void> Function() action,
+  ) async {
     try {
-      await ref.read(notificationServiceProvider).syncHabit(habit);
-    } catch (_) {
-      // Bildirim altyapısı yoksa (ör. test ortamı) alışkanlık yine kaydedilir.
+      await action();
+    } catch (e, st) {
+      debugPrint('$what: $e');
+      debugPrintStack(stackTrace: st, maxFrames: 5);
     }
   }
 }

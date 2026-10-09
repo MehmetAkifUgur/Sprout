@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -24,6 +25,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   late final TextEditingController _name;
   late TargetFrequency _frequency;
   late Set<int> _customDays;
+  late int _timesPerWeek;
   late PlantType _plant;
   TimeOfDay? _reminder;
   bool _saving = false;
@@ -37,6 +39,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _name = TextEditingController(text: e?.name ?? '');
     _frequency = e?.targetFrequency ?? TargetFrequency.daily;
     _customDays = {...?e?.customDays};
+    _timesPerWeek = e?.timesPerWeek ?? 1;
     _plant = e == null ? PlantType.flower : PlantType.fromName(e.plantType);
     final m = e?.reminderMinutes;
     _reminder = m == null ? null : TimeOfDay(hour: m ~/ 60, minute: m % 60);
@@ -51,7 +54,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dayNames = weekdayLabelsMonFirst;
+    const dayNames = weekdayLabelsMonFirst;
 
     return Scaffold(
       appBar: AppBar(
@@ -99,6 +102,36 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
                         () => on ? _customDays.add(d) : _customDays.remove(d),
                       ),
                     ),
+                ],
+              ),
+            ],
+            if (_frequency == TargetFrequency.weekly) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Expanded(child: Text('Haftada kaç gün?')),
+                  IconButton.outlined(
+                    tooltip: 'Azalt',
+                    onPressed: _timesPerWeek > 1
+                        ? () => setState(() => _timesPerWeek--)
+                        : null,
+                    icon: const Icon(Icons.remove),
+                  ),
+                  SizedBox(
+                    width: 40,
+                    child: Text(
+                      '$_timesPerWeek',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  IconButton.outlined(
+                    tooltip: 'Artır',
+                    onPressed: _timesPerWeek < 7
+                        ? () => setState(() => _timesPerWeek++)
+                        : null,
+                    icon: const Icon(Icons.add),
+                  ),
                 ],
               ),
             ],
@@ -188,37 +221,100 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
           .showSnackBar(const SnackBar(content: Text('En az bir gün seç')));
       return;
     }
-    setState(() => _saving = true);
 
     final reminder = _reminder == null
         ? null
         : _reminder!.hour * 60 + _reminder!.minute;
+    final customDays = _frequency == TargetFrequency.custom
+        ? _customDays
+        : <int>{};
+    final timesPerWeek = _frequency == TargetFrequency.weekly
+        ? _timesPerWeek
+        : 1;
     final notifier = ref.read(habitsProvider.notifier);
     final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     final e = widget.existing;
 
-    if (e == null) {
-      await notifier.addHabit(
-        Habit(
-          name: _name.text.trim(),
-          targetFrequency: _frequency,
-          customDays: _frequency == TargetFrequency.custom ? _customDays : {},
-          createdAt: ref.read(clockProvider)(),
-          plantType: _plant.name,
-          reminderMinutes: reminder,
-        ),
+    final updated = e?.copyWith(
+      name: _name.text.trim(),
+      targetFrequency: _frequency,
+      customDays: customDays,
+      timesPerWeek: timesPerWeek,
+      plantType: _plant.name,
+      reminderMinutes: () => reminder,
+    );
+    if (e != null && !await _confirmScheduleChange(e, updated!)) return;
+
+    setState(() => _saving = true);
+    try {
+      if (updated == null) {
+        await notifier.addHabit(
+          Habit(
+            name: _name.text.trim(),
+            targetFrequency: _frequency,
+            customDays: customDays,
+            timesPerWeek: timesPerWeek,
+            createdAt: ref.read(clockProvider)(),
+            plantType: _plant.name,
+            reminderMinutes: reminder,
+          ),
+        );
+      } else {
+        await notifier.updateHabit(updated);
+      }
+      navigator.pop();
+    } catch (err) {
+      debugPrint('Alışkanlık kaydedilemedi: $err');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Kaydedilemedi, tekrar dene.')),
       );
-    } else {
-      await notifier.updateHabit(
-        e.copyWith(
-          name: _name.text.trim(),
-          targetFrequency: _frequency,
-          customDays: _frequency == TargetFrequency.custom ? _customDays : {},
-          plantType: _plant.name,
-          reminderMinutes: () => reminder,
-        ),
-      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    navigator.pop();
+  }
+
+  /// Sıklık değişirse geçmiş yeni plana göre yeniden hesaplanır; puan ve seri
+  /// değişebileceği için önce kullanıcıya önizlemeyle sorulur.
+  Future<bool> _confirmScheduleChange(Habit before, Habit after) async {
+    final sameSchedule =
+        before.targetFrequency == after.targetFrequency &&
+        before.timesPerWeek == after.timesPerWeek &&
+        setEquals(before.customDays, after.customDays);
+    if (sameSchedule) return true;
+
+    final view = ref
+        .read(habitsProvider)
+        .value
+        ?.where((v) => v.id == before.id)
+        .firstOrNull;
+    if (view == null) return true;
+    final now = ref.read(clockProvider)();
+    final preview = HabitView.compute(after, view.completedDays, now).growth;
+    final old = view.growth;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sıklık değişsin mi?'),
+        content: Text(
+          'Geçmiş kayıtların yeni plana göre yeniden hesaplanır.\n\n'
+          'Puan: ${old.score.round()} → ${preview.score.round()}\n'
+          'Evre: ${old.stage.label} → ${preview.stage.label}\n'
+          'Seri: ${old.currentStreak} → ${preview.currentStreak}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Değiştir'),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
   }
 }

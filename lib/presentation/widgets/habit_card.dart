@@ -23,18 +23,23 @@ class HabitCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final habit = view.habit;
-    final due = view.dueToday;
+    final canToggle = view.canToggleToday;
     final done = view.completedToday;
-    final weeklyDone =
-        habit.targetFrequency == TargetFrequency.weekly && view.doneThisPeriod;
+    final weekly = habit.targetFrequency == TargetFrequency.weekly;
 
     final String status;
-    if (view.growth.isWilted) {
+    if (view.pausedToday) {
+      status = 'Tatilde 🌴';
+    } else if (view.growth.isWilted) {
       status = 'Soluyor! ${view.growth.missedInARow} kez kaçırıldı';
-    } else if (!due) {
+    } else if (!canToggle) {
       status = 'Bugün planlı değil';
-    } else if (weeklyDone && !done) {
+    } else if (weekly && view.doneThisPeriod && !done) {
       status = 'Bu hafta tamamlandı';
+    } else if (weekly && habit.timesPerWeek > 1) {
+      status =
+          'Bu hafta ${view.completionsThisWeek}/${habit.timesPerWeek} · '
+          '🔥 ${view.growth.currentStreak}';
     } else {
       status = '${view.stage.label} · 🔥 ${view.growth.currentStreak}';
     }
@@ -48,14 +53,21 @@ class HabitCard extends StatelessWidget {
           child: Column(
             children: [
               Expanded(
-                child: Hero(
-                  tag: 'plant-${view.id}',
-                  child: LayoutBuilder(
-                    builder: (context, c) => PlantWidget(
-                      score: view.growth.score,
-                      type: PlantType.fromName(habit.plantType),
-                      isWilted: view.growth.isWilted,
-                      size: c.biggest.shortestSide,
+                child: Semantics(
+                  label:
+                      '${habit.name}. $status. '
+                      '${done ? 'Bugün tamamlandı' : 'Bugün tamamlanmadı'}. '
+                      'Ayrıntılar için dokun.',
+                  excludeSemantics: true,
+                  child: Hero(
+                    tag: 'plant-${view.id}',
+                    child: LayoutBuilder(
+                      builder: (context, c) => PlantWidget(
+                        score: view.growth.score,
+                        type: PlantType.fromName(habit.plantType),
+                        isWilted: view.growth.isWilted,
+                        size: c.biggest.shortestSide,
+                      ),
                     ),
                   ),
                 ),
@@ -63,6 +75,7 @@ class HabitCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 habit.name,
+                semanticsLabel: '',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -71,6 +84,7 @@ class HabitCard extends StatelessWidget {
               ),
               Text(
                 status,
+                semanticsLabel: '',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -86,12 +100,18 @@ class HabitCard extends StatelessWidget {
                     ? FilledButton.icon(
                         onPressed: onToggle,
                         icon: const Icon(Icons.check_circle),
-                        label: const Text('Tamamlandı'),
+                        label: Text(
+                          'Tamamlandı',
+                          semanticsLabel: '${habit.name}: tamamlandı, geri al',
+                        ),
                       )
                     : OutlinedButton.icon(
-                        onPressed: due ? onToggle : null,
+                        onPressed: canToggle ? onToggle : null,
                         icon: const Icon(Icons.water_drop_outlined),
-                        label: const Text('Sula'),
+                        label: Text(
+                          'Sula',
+                          semanticsLabel: '${habit.name}: sula',
+                        ),
                       ),
               ),
             ],

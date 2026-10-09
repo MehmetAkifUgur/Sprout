@@ -61,6 +61,8 @@ void main() {
     final habit = (await repo.getHabits()).single;
     expect(habit.name, 'Eski alışkanlık');
     expect(habit.reminderMinutes, isNull);
+    expect(habit.timesPerWeek, 1);
+    expect(habit.pauses, isEmpty);
     expect(await repo.isOnboardingDone(), isFalse);
     expect(await database.db.getVersion(), AppDatabase.version);
 
