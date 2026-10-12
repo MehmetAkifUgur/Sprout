@@ -1,4 +1,4 @@
-# Bitki Büyüt — Mimari
+# Sprout — Mimari
 
 ## Katmanlar
 
