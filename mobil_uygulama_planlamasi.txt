@@ -1,5 +1,5 @@
 3.1. MOBİL UYGULAMANIN PLANLAMASI
-(Bitki Büyüt / Sprout projesine göre — ders materyalindeki Gezi Takımı örneğinin
+(Sprout projesine göre — ders materyalindeki Gezi Takımı örneğinin
 yapısı izlenerek hazırlanmıştır)
 
 YAPILMAK İSTENEN ÇALIŞMA

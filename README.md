@@ -1,4 +1,4 @@
-# 🌱 Bitki Büyüt
+# 🌱 Sprout
 
 Alışkanlıklarını, her tamamladığında büyüyen bir saksı bitkisi olarak takip eden,
 tamamen **offline** çalışan bir Flutter uygulaması. Sunucu yok, hesap yok —

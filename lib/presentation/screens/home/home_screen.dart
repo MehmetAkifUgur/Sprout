@@ -103,7 +103,7 @@ class HomeScreen extends ConsumerWidget {
     try {
       final saved = await FilePicker.saveFile(
         dialogTitle: 'Yedeği kaydet',
-        fileName: 'bitki-buyut-yedek-$day.json',
+        fileName: 'sprout-yedek-$day.json',
         bytes: utf8.encode(json),
         mimeType: 'application/json',
       );

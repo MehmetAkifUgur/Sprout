@@ -389,7 +389,7 @@ void main() {
     await tester.tap(find.text('Yedeği dışa aktar'));
     await tester.pumpAndSettle();
     expect(find.text('Yedek kaydedildi 🌱'), findsOneWidget);
-    expect(picker.savedName, 'bitki-buyut-yedek-2026-09-15.json');
+    expect(picker.savedName, 'sprout-yedek-2026-09-15.json');
 
     await repo.deleteHabit(habit.id!);
     await tester.pumpWidget(app());

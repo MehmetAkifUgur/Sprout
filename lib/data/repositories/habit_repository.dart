@@ -176,7 +176,7 @@ class HabitRepository {
     try {
       final root = jsonDecode(json);
       if (root is! Map || root['app'] != 'sprout') {
-        throw const FormatException('Bu bir Bitki Büyüt yedeği değil.');
+        throw const FormatException('Bu bir Sprout yedeği değil.');
       }
       if ((root['format'] as int) > backupFormat) {
         throw const FormatException(

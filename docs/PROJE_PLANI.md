@@ -1,4 +1,4 @@
-# Bitki Büyüt: Alışkanlık Takip Uygulaması — Proje Dökümantasyonu
+# Sprout: Alışkanlık Takip Uygulaması — Proje Dökümantasyonu
 
 Bu doküman, projenin Claude Code ile geliştirilmesi sırasında referans alınacak
 genel yapı, aşamalar ve teknik kararları içerir. Her yeni oturumda bu dosya
@@ -8,7 +8,7 @@ okunarak projenin neresinde kalındığı takip edilebilir.
 
 ## 1. Proje Özeti
 
-**Ad:** Bitki Büyüt (çalışma adı)
+**Ad:** Sprout
 **Platform:** Flutter (öncelikli hedef: Android)
 **Tip:** Alışkanlık takip uygulaması — gamification mekaniği olarak
 her alışkanlık kullanıcının "büyüttüğü" bir sanal bitkiye bağlanır.
