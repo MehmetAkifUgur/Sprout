@@ -50,3 +50,6 @@ flutter_emulator_rehberi.txt
 proje_hazirlik.docx
 .gitignore
 CLAUDE.md
+
+# Gradle çıktısı (flutter run/build)
+android/build/
