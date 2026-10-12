@@ -11,6 +11,8 @@ include: package:flutter_lints/flutter.yaml
 
 analyzer:
   exclude:
+    # Bağımsız haftalık projeler; kendi pubspec'leriyle ayrıca analiz edilir.
+    - Haftalar/**
     - build/**
     - android/**
     - ios/**
