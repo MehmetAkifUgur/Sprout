@@ -53,3 +53,8 @@ CLAUDE.md
 
 # Gradle çıktısı (flutter run/build)
 android/build/
+
+# Proje raporları ve ders belgeleri (yalnızca yerelde)
+*.docx
+mobil_uygulama_planlamasi.txt
+proje_hazirlik.txt
